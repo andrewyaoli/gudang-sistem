@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sistem Manajemen Gudang - Manajemen Produk</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        /* 复用相同的样式 */
+        body {
+            padding-top: 56px;
+        }
+        .sidebar {
+            position: fixed;
+            top: 56px;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 0;
+            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+            width: 240px;
+            background-color: #f8f9fa;
+        }
+        .main-content {
+            margin-left: 240px;
+            padding: 20px;
+            min-height: calc(100vh - 56px);
+        }
+        .nav-link {
+            color: #333;
+            padding: 8px 16px;
+        }
+        .nav-link:hover {
+            background-color: #e9ecef;
+        }
+        .nav-link.active {
+            background-color: #0d6efd;
+            color: white;
+        }
+        .navbar-brand {
+            padding-left: 15px;
+        }
+        .user-info {
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">Sistem Manajemen Gudang</a>
+            <div class="navbar-nav ms-auto">
+                <span class="nav-link text-light">
+                    <i class="bi bi-person-circle"></i>
+                    {{ session['username'] }}
+                </span>
+                <a class="nav-link" href="{{ url_for('logout') }}">
+                    <i class="bi bi-box-arrow-right"></i> Keluar
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+        <div class="user-info">
+            <h6 class="mb-0">Pengguna: {{ session['username'] }}</h6>
+            <small class="text-muted">Peran: {{ 'Administrator' if is_admin else 'Pengguna Biasa' }}</small>
+        </div>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('dashboard') }}">
+                    <i class="bi bi-house-door"></i> Beranda
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('inventory') }}">
+                    <i class="bi bi-box-seam"></i> Manajemen Stok
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link active" href="{{ url_for('products') }}">
+                    <i class="bi bi-cart-plus"></i> Manajemen Produk
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('reports') }}">
+                    <i class="bi bi-file-earmark-text"></i> Laporan Statistik
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('settings') }}">
+                    <i class="bi bi-gear"></i> Pengaturan Sistem
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- 主要内容区域 -->
+    <div class="main-content">
+        <!-- 添加商品表单 -->
+        {% if is_admin %}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Tambah Produk Baru</h5>
+                <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#addProductForm">
+                    <i class="bi bi-plus"></i> Buka/Tutup
+                </button>
+            </div>
+            <div id="addProductForm" class="collapse show">
+                <div class="card-body">
+                    <form action="{{ url_for('add_product') }}" method="POST">
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Nama Produk</label>
+                                <input type="text" class="form-control" name="name" required>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Spesifikasi</label>
+                                <input type="text" class="form-control" name="specification">
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Harga</label>
+                                <input type="number" class="form-control" name="price" step="0.01" required>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Stok Minimum</label>
+                                <input type="number" class="form-control" name="min_quantity" value="0" required>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary w-100">Tambah Produk</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 商品列表 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Daftar Produk</h5>
+                <div class="d-flex gap-2">
+                    <div class="input-group" style="width: 300px;">
+                        <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Cari berdasarkan ID atau nama produk...">
+                        <span class="input-group-text bg-light">
+                            <i class="bi bi-search"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Kode Produk</th>
+                            <th>Nama Produk</th>
+                            <th>Spesifikasi</th>
+                            {% if session.get('role') != 'viewer' %}
+                            <th>Stok</th>
+                            <th>Stok Minimum</th>
+                            {% endif %}
+                            <th>Harga</th>
+                            {% if session.get('role') != 'viewer' %}
+                            <th>Total Nilai</th>
+                            {% endif %}
+                            <th>Pemasok</th>
+                            {% if session.get('role') != 'viewer' %}
+                            <th>Tanggal Dibuat</th>
+                            <th>Terakhir Diperbarui</th>
+                            <th>Aksi</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in products %}
+                        <tr data-product-id="{{ product.product_id }}">
+                            <td>{{ product.product_id }}</td>
+                            <td data-name>{{ product.name }}</td>
+                            <td data-specification>{{ product.specification or '-' }}</td>
+                            {% if session.get('role') != 'viewer' %}
+                            <td>{{ '{:,}'.format(product.quantity) }}</td>
+                            <td>{{ product.min_quantity }}</td>
+                            {% endif %}
+                            <td data-price>Rp {{ '{:,.0f}'.format(product.price) }}</td>
+                            {% if session.get('role') != 'viewer' %}
+                            <td>Rp {{ '{:,.0f}'.format(product.price * product.quantity) }}</td>
+                            {% endif %}
+                            <td data-supplier>{{ product.supplier or '-' }}</td>
+                            {% if session.get('role') != 'viewer' %}
+                            <td>{{ product.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ product.updated_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                {% if is_admin %}
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-primary" onclick="editProduct('{{ product.product_id }}')">
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteProduct('{{ product.product_id }}', '{{ product.name }}')">
+                                        <i class="bi bi-trash"></i> Hapus
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 在表格后面添加编辑模态框 -->
+        <div class="modal fade" id="editProductModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Produk</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form id="editProductForm" method="POST">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Kode Produk</label>
+                                <input type="text" class="form-control" id="edit_product_id" disabled>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Nama Produk</label>
+                                <input type="text" class="form-control" name="name" id="edit_name" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Spesifikasi</label>
+                                <input type="text" class="form-control" name="specification" id="edit_specification">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Harga</label>
+                                <input type="number" class="form-control" name="price" id="edit_price" step="0.01" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Stok Minimum</label>
+                                <input type="number" class="form-control" name="min_quantity" id="edit_min_quantity" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Pemasok</label>
+                                <input type="text" class="form-control" name="supplier" id="edit_supplier">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                            <button type="submit" class="btn btn-primary">Simpan</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 在编辑模态框后面添加成功提示模态框 -->
+        <div class="modal fade" id="successModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Operasi Berhasil</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p id="successMessage"></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Batal</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 添加删除确认模态框 -->
+        <div class="modal fade" id="deleteProductModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Konfirmasi Hapus</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Apakah Anda yakin ingin menghapus produk <span id="deleteProductName" class="fw-bold"></span>?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="button" class="btn btn-danger" onclick="confirmDelete()">Hapus</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 检查是否有成功消息
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                {% if category == 'success' %}
+                    document.addEventListener('DOMContentLoaded', function() {
+                        document.getElementById('successMessage').textContent = "{{ message }}";
+                        new bootstrap.Modal(document.getElementById('successModal')).show();
+                    });
+                {% endif %}
+            {% endfor %}
+        {% endwith %}
+
+        // 搜索功能
+        document.getElementById('searchInput').addEventListener('keyup', function() {
+            let searchText = this.value.toLowerCase();
+            let tableRows = document.querySelectorAll('tbody tr');
+            
+            tableRows.forEach(row => {
+                // 只搜索商品ID和名称列
+                let productId = row.querySelector('td:first-child').textContent.toLowerCase();
+                let productName = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+                let match = productId.includes(searchText) || productName.includes(searchText);
+                row.style.display = match ? '' : 'none';
+            });
+        });
+
+        // 编辑商品功能
+        function editProduct(productId) {
+            const row = document.querySelector(`tr[data-product-id="${productId}"]`);
+            const name = row.querySelector('[data-name]').textContent;
+            const specification = row.querySelector('[data-specification]').textContent;
+            const price = row.querySelector('[data-price]').textContent.replace('Rp ', '').replace(/,/g, '');
+            const minQuantity = row.querySelector('td:nth-child(5)').textContent;
+            const supplier = row.querySelector('[data-supplier]').textContent;
+
+            document.getElementById('edit_product_id').value = productId;
+            document.getElementById('edit_name').value = name;
+            document.getElementById('edit_specification').value = specification === '-' ? '' : specification;
+            document.getElementById('edit_price').value = price;
+            document.getElementById('edit_min_quantity').value = minQuantity;
+            document.getElementById('edit_supplier').value = supplier === '-' ? '' : supplier;
+
+            // 设置表单提交地址
+            document.getElementById('editProductForm').action = `/edit_product/${productId}`;
+
+            // 显示模态框
+            new bootstrap.Modal(document.getElementById('editProductModal')).show();
+        }
+
+        let productToDelete = '';
+        let deleteModal;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            deleteModal = new bootstrap.Modal(document.getElementById('deleteProductModal'));
+        });
+
+        function deleteProduct(productId, productName) {
+            productToDelete = productId;
+            document.getElementById('deleteProductName').textContent = productName;
+            deleteModal.show();
+        }
+
+        function confirmDelete() {
+            if (productToDelete) {
+                window.location.href = `/remove_product/${productToDelete}`;
+            }
+        }
+    </script>
+</body>
+</html> 

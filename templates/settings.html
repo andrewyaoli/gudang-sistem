@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sistem Manajemen Gudang - Pengaturan Sistem</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body { padding-top: 56px; }
+        .sidebar {
+            position: fixed;
+            top: 56px;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 0;
+            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+            width: 240px;
+            background-color: #f8f9fa;
+        }
+        .main-content {
+            margin-left: 240px;
+            padding: 20px;
+            min-height: calc(100vh - 56px);
+        }
+        .nav-link {
+            color: #333;
+            padding: 8px 16px;
+        }
+        .nav-link:hover {
+            background-color: #e9ecef;
+        }
+        .nav-link.active {
+            background-color: #0d6efd;
+            color: white;
+        }
+        .user-info {
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">Sistem Manajemen Gudang</a>
+            <div class="navbar-nav ms-auto">
+                <span class="nav-link text-light">
+                    <i class="bi bi-person-circle"></i>
+                    {{ session['username'] }}
+                </span>
+                <a class="nav-link" href="{{ url_for('logout') }}">
+                    <i class="bi bi-box-arrow-right"></i> Keluar
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+        <div class="user-info">
+            <h6 class="mb-0">Pengguna: {{ session['username'] }}</h6>
+            <small class="text-muted">Peran: {{ {
+                'admin': 'Administrator',
+                'user': 'Pengguna Biasa',
+                'viewer': 'Pengguna Viewer'
+            }.get(session.get('role'), 'Pengguna Biasa') }}</small>
+        </div>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('dashboard') }}">
+                    <i class="bi bi-house-door"></i> Beranda
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('inventory') }}">
+                    <i class="bi bi-box-seam"></i> Manajemen Stok
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('products') }}">
+                    <i class="bi bi-cart-plus"></i> Manajemen Produk
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('reports') }}">
+                    <i class="bi bi-file-earmark-text"></i> Laporan Statistik
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link active" href="{{ url_for('settings') }}">
+                    <i class="bi bi-gear"></i> Pengaturan Sistem
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- 主要内容区域 -->
+    <div class="main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- 修改密码卡片 - 所有用户都可以访问 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Ubah Kata Sandi</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('change_password') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Kata Sandi Saat Ini</label>
+                        <input type="password" class="form-control" name="current_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Kata Sandi Baru</label>
+                        <input type="password" class="form-control" name="new_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Konfirmasi Kata Sandi Baru</label>
+                        <input type="password" class="form-control" name="confirm_password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Ubah Kata Sandi</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 用户管理卡片 - 仅管理员可见 -->
+        {% if is_admin %}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Manajemen Pengguna</h5>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                        <i class="bi bi-person-plus"></i> Tambah Pengguna
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nama Pengguna</th>
+                            <th>Peran</th>
+                            <th>Tanggal Dibuat</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.username }}</td>
+                            <td>{{ {
+                                'admin': 'Administrator',
+                                'user': 'Pengguna Biasa',
+                                'viewer': 'Pengguna Viewer'
+                            }.get(user.role, 'Pengguna Biasa') }}</td>
+                            <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                {% if user.username != 'admin' %}
+                                <button class="btn btn-sm btn-danger" onclick="deleteUser('{{ user.username }}')">
+                                    <i class="bi bi-trash"></i> Hapus
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 确认删除模态框 -->
+        <div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Konfirmasi Hapus</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Apakah Anda yakin ingin menghapus pengguna <span id="deleteUsername" class="fw-bold"></span>?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="button" class="btn btn-danger" onclick="confirmDelete()">Hapus</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 添加用户模态框 -->
+    {% if is_admin %}
+    <div class="modal fade" id="addUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tambah Pengguna</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="{{ url_for('add_user') }}" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Nama Pengguna</label>
+                            <input type="text" class="form-control" name="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Kata Sandi</label>
+                            <input type="password" class="form-control" name="password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Peran</label>
+                            <select class="form-select" name="role" required>
+                                <option value="user">Pengguna Biasa</option>
+                                <option value="viewer">Pengguna Viewer</option>
+                                <option value="admin">Administrator</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">Tambah</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let userToDelete = '';
+        let deleteModal;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+        });
+
+        function deleteUser(username) {
+            userToDelete = username;
+            document.getElementById('deleteUsername').textContent = username;
+            deleteModal.show();
+        }
+
+        function confirmDelete() {
+            if (userToDelete) {
+                window.location.href = `/delete_user/${userToDelete}`;
+            }
+        }
+    </script>
+</body>
+</html> 

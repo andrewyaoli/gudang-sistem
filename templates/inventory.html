@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sistem Manajemen Gudang - Manajemen Stok</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 56px;
+        }
+        .sidebar {
+            position: fixed;
+            top: 56px;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 0;
+            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+            width: 240px;
+            background-color: #f8f9fa;
+        }
+        .main-content {
+            margin-left: 240px;
+            padding: 20px;
+            min-height: calc(100vh - 56px);
+        }
+        .nav-link {
+            color: #333;
+            padding: 8px 16px;
+        }
+        .nav-link:hover {
+            background-color: #e9ecef;
+        }
+        .nav-link.active {
+            background-color: #0d6efd;
+            color: white;
+        }
+        .navbar-brand {
+            padding-left: 15px;
+        }
+        .user-info {
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">Sistem Manajemen Gudang</a>
+            <div class="navbar-nav ms-auto">
+                <span class="nav-link text-light">
+                    <i class="bi bi-person-circle"></i>
+                    {{ session['username'] }}
+                </span>
+                <a class="nav-link" href="{{ url_for('logout') }}">
+                    <i class="bi bi-box-arrow-right"></i> Keluar
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+        <div class="user-info">
+            <h6 class="mb-0">Pengguna: {{ session['username'] }}</h6>
+            <small class="text-muted">Peran: {{ 'Administrator' if is_admin else 'Pengguna Biasa' }}</small>
+        </div>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('dashboard') }}">
+                    <i class="bi bi-house-door"></i> Beranda
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link active" href="{{ url_for('inventory') }}">
+                    <i class="bi bi-box-seam"></i> Manajemen Stok
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('products') }}">
+                    <i class="bi bi-cart-plus"></i> Manajemen Produk
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('reports') }}">
+                    <i class="bi bi-file-earmark-text"></i> Laporan Statistik
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('settings') }}">
+                    <i class="bi bi-gear"></i> Pengaturan Sistem
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- 主要内容区域 -->
+    <div class="main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- 商品查询卡片 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Pencarian Produk</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Masukkan nama produk...">
+                            <button class="btn btn-outline-primary" type="button" id="searchButton">
+                                <i class="bi bi-search"></i> Cari
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="searchResults" class="d-none">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Kode Produk</th>
+                                <th>Nama Produk</th>
+                                <th>Spesifikasi</th>
+                                <th>Harga</th>
+                            </tr>
+                        </thead>
+                        <tbody id="searchResultsBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 库存管理卡片 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Operasi Stok</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- 入库表单 -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0">Barang Masuk</h6>
+                            </div>
+                            <div class="card-body">
+                                <form action="{{ url_for('stock_in') }}" method="POST">
+                                    <div class="mb-3">
+                                        <label class="form-label">Kode Produk</label>
+                                        <input type="text" class="form-control" name="product_id" id="inProductId" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Nama Produk</label>
+                                        <input type="text" class="form-control" id="inProductName" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Spesifikasi</label>
+                                        <input type="text" class="form-control" id="inProductSpec" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Jumlah Masuk</label>
+                                        <input type="number" class="form-control" name="quantity" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Pemasok</label>
+                                        <input type="text" class="form-control" name="supplier" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-success w-100">Konfirmasi Masuk</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 出库表单 -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-warning">
+                                <h6 class="mb-0">Barang Keluar</h6>
+                            </div>
+                            <div class="card-body">
+                                <form action="{{ url_for('stock_out') }}" method="POST">
+                                    <div class="mb-3">
+                                        <label class="form-label">Kode Produk</label>
+                                        <input type="text" class="form-control" name="product_id" id="outProductId" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Nama Produk</label>
+                                        <input type="text" class="form-control" id="outProductName" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Spesifikasi</label>
+                                        <input type="text" class="form-control" id="outProductSpec" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Jumlah Keluar</label>
+                                        <input type="number" class="form-control" name="quantity" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Tujuan</label>
+                                        <select class="form-select" name="destination" required>
+                                            <option value="">Pilih Tujuan</option>
+                                            <option value="preprocessing">Ruang Pre-processing</option>
+                                            <option value="production">Ruang Produksi</option>
+                                            <option value="packaging">Ruang Pengemasan</option>
+                                            <option value="office">Kantor</option>
+                                        </select>
+                                    </div>
+                                    <button type="submit" class="btn btn-warning w-100">Konfirmasi Keluar</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 成功提示模态框 -->
+    <div class="modal fade" id="successModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Operasi Berhasil</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="successMessage"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('searchButton').addEventListener('click', searchProduct);
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchProduct();
+            }
+        });
+
+        function searchProduct() {
+            const searchText = document.getElementById('searchInput').value.trim();
+            if (!searchText) return;
+
+            fetch(`/search_product?name=${encodeURIComponent(searchText)}`)
+                .then(response => response.json())
+                .then(data => {
+                    const resultsDiv = document.getElementById('searchResults');
+                    const tbody = document.getElementById('searchResultsBody');
+                    tbody.innerHTML = '';
+
+                    if (data.length > 0) {
+                        data.forEach(product => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${product.product_id}</td>
+                                <td>${product.name}</td>
+                                <td>${product.specification || '-'}</td>
+                                <td>Rp ${product.price.toLocaleString()}</td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                        resultsDiv.classList.remove('d-none');
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Produk Tidak Ditemukan</td></tr>';
+                        resultsDiv.classList.remove('d-none');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Pencarian Gagal, Silakan Coba Lagi');
+                });
+        }
+
+        // 添加商品ID输入监听
+        document.getElementById('inProductId').addEventListener('input', function() {
+            fetchProductName(this.value, 'inProductName');
+        });
+
+        document.getElementById('outProductId').addEventListener('input', function() {
+            fetchProductName(this.value, 'outProductName');
+        });
+
+        // 获取商品名称的函数
+        function fetchProductName(productId, targetId) {
+            if (!productId) {
+                document.getElementById(targetId).value = '';
+                document.getElementById(targetId.replace('Name', 'Spec')).value = '';
+                return;
+            }
+
+            fetch(`/get_product_name/${productId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById(targetId).value = data.name || 'Produk Tidak Ditemukan';
+                    document.getElementById(targetId.replace('Name', 'Spec')).value = 
+                        data.specification || '-';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById(targetId).value = 'Produk Tidak Ditemukan';
+                    document.getElementById(targetId.replace('Name', 'Spec')).value = '-';
+                });
+        }
+
+        // 检查是否有成功消息
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                {% if category == 'success' %}
+                    document.addEventListener('DOMContentLoaded', function() {
+                        document.getElementById('successMessage').textContent = "{{ message }}";
+                        new bootstrap.Modal(document.getElementById('successModal')).show();
+                    });
+                {% endif %}
+            {% endfor %}
+        {% endwith %}
+    </script>
+</body>
+</html> 
